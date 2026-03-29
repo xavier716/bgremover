@@ -1,10 +1,14 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
-import { removeBackground } from "@imgly/background-removal";
+import { useState, useRef, useEffect, Suspense, lazy } from "react";
 import { useI18n } from "@/lib/i18n/context";
 import { formatString } from "@/lib/i18n/translations";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
+
+// 动态导入背景移除功能，避免构建时处理
+const BackgroundRemovalComponent = lazy(() =>
+  import('@/components/BackgroundRemoval').then(mod => ({ default: mod.BackgroundRemovalComponent }))
+);
 
 export default function Home() {
   const { t } = useI18n();
@@ -74,37 +78,6 @@ export default function Home() {
     fileInputRef.current?.click();
   };
 
-  const compressImage = async (blob: Blob, maxWidth: number = 1280): Promise<Blob> => {
-    return new Promise((resolve) => {
-      const img = new Image();
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        let width = img.width;
-        let height = img.height;
-
-        if (width > maxWidth) {
-          height = (height * maxWidth) / width;
-          width = maxWidth;
-        }
-
-        canvas.width = width;
-        canvas.height = height;
-
-        const ctx = canvas.getContext('2d');
-        ctx?.drawImage(img, 0, 0, width, height);
-
-        canvas.toBlob(
-          (resultBlob) => {
-            resolve(resultBlob || blob);
-          },
-          'image/jpeg',
-          0.85
-        );
-      };
-      img.src = URL.createObjectURL(blob);
-    });
-  };
-
   const handleRemoveBackground = async () => {
     if (!selectedImage) return;
 
@@ -113,6 +86,9 @@ export default function Home() {
     setProgress(0);
 
     try {
+      // 动态导入背景移除功能
+      const { removeBackground } = await import('@imgly/background-removal');
+
       setProgress(5);
       let blob = await fetch(selectedImage).then((r) => r.blob());
 
@@ -157,6 +133,37 @@ export default function Home() {
         setProgress(0);
       }, 800);
     }
+  };
+
+  const compressImage = async (blob: Blob, maxWidth: number = 1280): Promise<Blob> => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+
+        if (width > maxWidth) {
+          height = (height * maxWidth) / width;
+          width = maxWidth;
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+
+        const ctx = canvas.getContext('2d');
+        ctx?.drawImage(img, 0, 0, width, height);
+
+        canvas.toBlob(
+          (resultBlob) => {
+            resolve(resultBlob || blob);
+          },
+          'image/jpeg',
+          0.85
+        );
+      };
+      img.src = URL.createObjectURL(blob);
+    });
   };
 
   const handleDownload = () => {
