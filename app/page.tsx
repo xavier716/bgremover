@@ -7,11 +7,13 @@ import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 export default function Home() {
   const { t } = useI18n();
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [processedImage, setProcessedImage] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
   const [viewportHeight, setViewportHeight] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const originalFileRef = useRef<File | null>(null);
 
   // 检测视口高度
   useEffect(() => {
@@ -32,11 +34,17 @@ export default function Home() {
       }
 
       const fileSizeMB = file.size / (1024 * 1024);
-      if (fileSizeMB > 5) {
-        setError(`Large file detected (${fileSizeMB.toFixed(1)}MB). For best results, use images under 2MB.`);
+      if (fileSizeMB > 10) {
+        setError(`File too large (${fileSizeMB.toFixed(1)}MB). Maximum size is 10MB.`);
+        return;
+      } else if (fileSizeMB > 5) {
+        setError(`Large file detected (${fileSizeMB.toFixed(1)}MB). For best results, use images under 5MB.`);
       } else {
         setError(null);
       }
+
+      originalFileRef.current = file;
+      setProcessedImage(null);
 
       const reader = new FileReader();
       reader.onload = (e) => {
@@ -50,7 +58,16 @@ export default function Home() {
     event.preventDefault();
     const file = event.dataTransfer.files[0];
     if (file && file.type.startsWith("image/")) {
+      const fileSizeMB = file.size / (1024 * 1024);
+      if (fileSizeMB > 10) {
+        setError(`File too large (${fileSizeMB.toFixed(1)}MB). Maximum size is 10MB.`);
+        return;
+      }
+
       setError(null);
+      originalFileRef.current = file;
+      setProcessedImage(null);
+
       const reader = new FileReader();
       reader.onload = (e) => {
         setSelectedImage(e.target?.result as string);
@@ -70,52 +87,82 @@ export default function Home() {
   };
 
   const handleRemoveBackground = async () => {
-    if (!selectedImage) return;
+    if (!selectedImage || !originalFileRef.current) return;
 
     setIsProcessing(true);
     setError(null);
     setProgress(0);
+    setProcessedImage(null);
 
     try {
-      // 模拟背景移除过程（演示版本）
-      const steps = [
-        { progress: 10, delay: 500 },
-        { progress: 30, delay: 1000 },
-        { progress: 50, delay: 1500 },
-        { progress: 70, delay: 2000 },
-        { progress: 90, delay: 2500 },
-        { progress: 100, delay: 3000 },
-      ];
+      // Create form data with the image file
+      const formData = new FormData();
+      formData.append('image', originalFileRef.current);
 
-      for (const step of steps) {
-        await new Promise(resolve => setTimeout(resolve, step.delay));
-        setProgress(step.progress);
+      // Progress updates
+      const progressSteps = [10, 25, 40, 60, 80, 95];
+      for (const step of progressSteps) {
+        await new Promise(resolve => setTimeout(resolve, 200));
+        setProgress(step);
       }
 
-      // 这里只是简单显示原图作为演示
-      // 实际应用中需要集成背景移除 API
+      // Call our API route
+      const response = await fetch('/api/remove-background', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to remove background');
+      }
+
+      if (data.success && data.image) {
+        setProcessedImage(data.image);
+        setProgress(100);
+      } else {
+        throw new Error('Invalid response from server');
+      }
+
       setIsProcessing(false);
     } catch (err) {
       console.error("Error removing background:", err);
-      setError(t('processingError'));
+      const errorMessage = err instanceof Error ? err.message : t('processingError');
+
+      if (errorMessage.includes('API key not configured')) {
+        setError('Server configuration error. Please contact administrator.');
+      } else if (errorMessage.includes('Invalid API key')) {
+        setError('API configuration error. Please check API key.');
+      } else if (errorMessage.includes('Insufficient API credits')) {
+        setError('API credit limit reached. Please try again later.');
+      } else if (errorMessage.includes('Rate limit')) {
+        setError('Too many requests. Please wait a moment and try again.');
+      } else {
+        setError(errorMessage);
+      }
+
       setIsProcessing(false);
       setProgress(0);
     }
   };
 
   const handleDownload = () => {
-    if (selectedImage) {
+    const imageToDownload = processedImage || selectedImage;
+    if (imageToDownload) {
       const link = document.createElement("a");
-      link.href = selectedImage;
-      link.download = "processed-image.png";
+      link.href = imageToDownload;
+      link.download = processedImage ? "background-removed.png" : "original-image.png";
       link.click();
     }
   };
 
   const handleReset = () => {
     setSelectedImage(null);
+    setProcessedImage(null);
     setError(null);
     setProgress(0);
+    originalFileRef.current = null;
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
@@ -240,6 +287,24 @@ export default function Home() {
                       </div>
                     </div>
                   </div>
+
+                  {processedImage && (
+                    <div className="flex flex-col min-h-0">
+                      <h3 className="text-sm md:text-base font-semibold text-gray-700 text-center mb-2">
+                        {t('processedImage')}
+                      </h3>
+                      <div className="flex-1 min-h-0 relative bg-gradient-to-br from-purple-50 to-blue-50 rounded-xl overflow-hidden flex items-center justify-center border-2 border-purple-300">
+                        <img
+                          src={processedImage}
+                          alt={t('processedImage')}
+                          className="max-w-full max-h-full object-contain"
+                        />
+                        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-purple-600/80 to-transparent p-2">
+                          <p className="text-white text-xs font-medium">✨ {t('processedImage')}</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div className="border-t border-gray-200 p-3 md:p-4 space-y-2 md:space-y-3 bg-gray-50">
@@ -292,28 +357,6 @@ export default function Home() {
                       </div>
                     </div>
                   )}
-
-                  <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-3">
-                    <div className="flex items-start gap-2">
-                      <svg
-                        className="w-5 h-5 text-yellow-600 flex-shrink-0"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                        />
-                      </svg>
-                      <p className="text-yellow-800 text-xs md:text-sm">
-                        <strong>Demo Mode:</strong> Background removal is currently in demo mode.
-                        For full functionality, please run locally.
-                      </p>
-                    </div>
-                  </div>
 
                   <div className="flex flex-wrap gap-2 md:gap-3 justify-center">
                     {!isProcessing && (

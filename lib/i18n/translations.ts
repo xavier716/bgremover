@@ -41,6 +41,7 @@ export const translations = {
 
     // Image Labels
     originalImage: 'Original Image',
+    processedImage: '✨ Processed Image',
     backgroundRemoved: '✨ Background Removed',
 
     // Messages
@@ -97,6 +98,7 @@ export const translations = {
 
     // Image Labels
     originalImage: '原始图片',
+    processedImage: '✨ 处理后图片',
     backgroundRemoved: '✨ 背景已移除',
 
     // Messages
