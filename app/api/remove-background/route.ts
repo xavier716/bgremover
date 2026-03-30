@@ -18,13 +18,10 @@ export async function POST(request: NextRequest) {
     // Check usage limit
     const session = await auth();
     const userId = session?.user?.id;
-    let anonymousId: string | undefined;
+    const anonymousUser = getAnonymousUser();
+    const anonymousId = anonymousUser.id || undefined;
 
-    if (!userId) {
-      const anonymousUser = getAnonymousUser();
-      anonymousId = anonymousUser.id || undefined;
-    }
-
+    // Always pass both userId and anonymousId to preserve usage across registration
     const usageCheck = checkCanUseService(userId || undefined, anonymousId);
 
     if (!usageCheck.allowed) {

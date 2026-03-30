@@ -1,93 +1,92 @@
 // Usage tracking using localStorage (no database required)
 
 const USAGE_KEY_PREFIX = 'usage_';
-const ANONYMOUS_LIMIT = 3;
-const REGISTERED_LIMIT = 0; // Registered users need to purchase credits
+const TOTAL_FREE_CREDITS = 3; // Total free credits for all users (anonymous + registered)
+const USAGE_KEY = 'usage_data'; // Single key for tracking usage across anonymous/registered state
 
 export interface UsageData {
-  userId?: string;
-  anonymousId?: string;
-  usageCount: number;
-  limit: number;
+  currentUserId?: string; // Current user ID (if registered)
+  anonymousId: string; // Anonymous ID (always present for tracking)
+  usageCount: number; // How many times used
+  totalCredits: number; // Total credits available (free + purchased)
   planType: 'free' | 'starter' | 'pro';
   lastReset: string;
 }
 
-// Get storage key for user
-function getStorageKey(userId?: string, anonymousId?: string): string {
-  if (userId) {
-    return `${USAGE_KEY_PREFIX}user_${userId}`;
+// Get the shared usage data (same for anonymous and registered users)
+function getUsageDataFromStorage(): UsageData | null {
+  if (typeof window === 'undefined') return null;
+
+  const stored = localStorage.getItem(USAGE_KEY);
+  if (!stored) return null;
+
+  try {
+    return JSON.parse(stored) as UsageData;
+  } catch (e) {
+    console.error('Error parsing usage data:', e);
+    return null;
   }
-  if (anonymousId) {
-    return `${USAGE_KEY_PREFIX}anon_${anonymousId}`;
-  }
-  return '';
 }
 
 // Get or create usage data
 export function getUsageData(userId?: string, anonymousId?: string): UsageData {
   if (typeof window === 'undefined') {
     return {
-      userId,
-      anonymousId,
+      anonymousId: anonymousId || '',
       usageCount: 0,
-      limit: userId ? REGISTERED_LIMIT : ANONYMOUS_LIMIT,
+      totalCredits: TOTAL_FREE_CREDITS,
       planType: 'free',
       lastReset: new Date().toISOString()
     };
   }
 
-  const key = getStorageKey(userId, anonymousId);
-  if (!key) {
-    return {
-      userId,
-      anonymousId,
+  // Try to get existing data
+  let data = getUsageDataFromStorage();
+
+  if (!data) {
+    // Create new user data
+    data = {
+      anonymousId: anonymousId || '',
       usageCount: 0,
-      limit: userId ? REGISTERED_LIMIT : ANONYMOUS_LIMIT,
+      totalCredits: TOTAL_FREE_CREDITS,
       planType: 'free',
       lastReset: new Date().toISOString()
     };
-  }
+    localStorage.setItem(USAGE_KEY, JSON.stringify(data));
+  } else {
+    // Update user ID if user just registered
+    let needsUpdate = false;
+    if (userId && data.currentUserId !== userId) {
+      data.currentUserId = userId;
+      needsUpdate = true;
+    }
+    if (anonymousId && data.anonymousId !== anonymousId) {
+      data.anonymousId = anonymousId;
+      needsUpdate = true;
+    }
 
-  const stored = localStorage.getItem(key);
-  if (stored) {
-    try {
-      const data = JSON.parse(stored) as UsageData;
-      // Check if reset is needed (monthly reset)
+    // Check if reset is needed (monthly reset for free users)
+    if (data.planType === 'free') {
       const lastReset = new Date(data.lastReset);
       const now = new Date();
       const monthsDiff = (now.getFullYear() - lastReset.getFullYear()) * 12 +
                         (now.getMonth() - lastReset.getMonth());
 
       if (monthsDiff >= 1) {
-        // Reset usage
-        const resetData: UsageData = {
-          ...data,
-          usageCount: 0,
-          lastReset: now.toISOString()
-        };
-        localStorage.setItem(key, JSON.stringify(resetData));
-        return resetData;
+        // Reset usage count and credits for free users
+        data.usageCount = 0;
+        data.totalCredits = TOTAL_FREE_CREDITS;
+        data.lastReset = now.toISOString();
+        needsUpdate = true;
       }
+    }
 
-      return data;
-    } catch (e) {
-      console.error('Error parsing usage data:', e);
+    if (needsUpdate) {
+      localStorage.setItem(USAGE_KEY, JSON.stringify(data));
     }
   }
 
-  // Create new usage data
-  const newData: UsageData = {
-    userId,
-    anonymousId,
-    usageCount: 0,
-    limit: userId ? REGISTERED_LIMIT : ANONYMOUS_LIMIT,
-    planType: 'free',
-    lastReset: new Date().toISOString()
-  };
-
-  localStorage.setItem(key, JSON.stringify(newData));
-  return newData;
+  return data;
 }
 
 // Check if user can use service
@@ -97,7 +96,7 @@ export function canUseService(userId?: string, anonymousId?: string): {
   plan: string;
 } {
   const data = getUsageData(userId, anonymousId);
-  const remaining = Math.max(0, data.limit - data.usageCount);
+  const remaining = Math.max(0, data.totalCredits - data.usageCount);
 
   return {
     allowed: remaining > 0,
@@ -113,10 +112,7 @@ export function incrementUsage(userId?: string, anonymousId?: string): void {
   const data = getUsageData(userId, anonymousId);
   data.usageCount += 1;
 
-  const key = getStorageKey(userId, anonymousId);
-  if (key) {
-    localStorage.setItem(key, JSON.stringify(data));
-  }
+  localStorage.setItem(USAGE_KEY, JSON.stringify(data));
 }
 
 // Add purchased credits (for registered users)
@@ -127,16 +123,13 @@ export function addCredits(
 ): void {
   if (typeof window === 'undefined') return;
 
-  const key = getStorageKey(userId);
-  if (!key) return;
-
   const data = getUsageData(userId);
-  data.limit = credits;
+  data.totalCredits = credits;
   data.planType = planType;
-  // Reset usage count when purchasing
-  data.usageCount = 0;
+  // Keep existing usage count, don't reset it
+  // This ensures users don't lose their remaining free credits
 
-  localStorage.setItem(key, JSON.stringify(data));
+  localStorage.setItem(USAGE_KEY, JSON.stringify(data));
 }
 
 // Get remaining credits
@@ -149,8 +142,5 @@ export function getRemainingCredits(userId?: string, anonymousId?: string): numb
 export function resetUsage(userId?: string, anonymousId?: string): void {
   if (typeof window === 'undefined') return;
 
-  const key = getStorageKey(userId, anonymousId);
-  if (key) {
-    localStorage.removeItem(key);
-  }
+  localStorage.removeItem(USAGE_KEY);
 }
