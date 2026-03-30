@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAnonymousUser } from '@/lib/utils/anonymous';
-import { canUseService } from '@/db/index-prisma';
+import { canUseService as checkCanUseService } from '@/lib/utils/usage';
 import { auth } from '@/auth';
 
 export async function GET(request: NextRequest) {
@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
 
     // If authenticated, use user ID
     if (session?.user?.id) {
-      const result = await canUseService(session.user.id);
+      const result = checkCanUseService(session.user.id);
       return NextResponse.json(result);
     }
 
@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    const result = await canUseService(undefined, anonymousUser.id);
+    const result = checkCanUseService(undefined, anonymousUser.id);
     return NextResponse.json(result);
 
   } catch (error) {

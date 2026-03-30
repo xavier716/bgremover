@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { canUseService, incrementUsage, logUsage } from '@/db/index-prisma';
+import { canUseService as checkCanUseService, incrementUsage as incrementUsageCount } from '@/lib/utils/usage';
 import { getAnonymousUser } from '@/lib/utils/anonymous';
 import { auth } from '@/auth';
 
@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
       anonymousId = anonymousUser.id || undefined;
     }
 
-    const usageCheck = await canUseService(userId || undefined, anonymousId);
+    const usageCheck = checkCanUseService(userId || undefined, anonymousId);
 
     if (!usageCheck.allowed) {
       return NextResponse.json(
@@ -99,10 +99,7 @@ export async function POST(request: NextRequest) {
     const dataUrl = `data:image/png;base64,${base64Image}`;
 
     // Increment usage count
-    await incrementUsage(userId || undefined, anonymousId);
-
-    // Log usage
-    await logUsage(userId || undefined, anonymousId, 'success', file.size);
+    incrementUsageCount(userId || undefined, anonymousId);
 
     return NextResponse.json({
       success: true,

@@ -31,15 +31,22 @@ export default function Home() {
     return () => window.removeEventListener('resize', updateHeight);
   }, []);
 
-  // Check usage credits on mount
+  // Check usage credits on mount and when session changes
   useEffect(() => {
     const checkUsage = async () => {
       try {
         const response = await fetch('/api/usage/check');
         const data = await response.json();
+        console.log('Usage check result:', data);
         setRemainingCredits(data.remaining);
       } catch (error) {
         console.error('Failed to check usage:', error);
+        // If API fails, set default based on auth status
+        if (session?.user?.id) {
+          setRemainingCredits(0); // Registered users need to purchase
+        } else {
+          setRemainingCredits(3); // Anonymous users get 3
+        }
       }
     };
 
