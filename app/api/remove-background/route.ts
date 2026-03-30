@@ -1,4 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { canUseService, incrementUsage, logUsage } from '@/db/index-prisma';
+import { getAnonymousUser } from '@/lib/utils/anonymous';
+import { auth } from '@/auth';
 
 export async function POST(request: NextRequest) {
   try {
@@ -9,6 +12,30 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: 'No image file provided' },
         { status: 400 }
+      );
+    }
+
+    // Check usage limit
+    const session = await auth();
+    const userId = session?.user?.id;
+    let anonymousId: string | undefined;
+
+    if (!userId) {
+      const anonymousUser = getAnonymousUser();
+      anonymousId = anonymousUser.id || undefined;
+    }
+
+    const usageCheck = await canUseService(userId || undefined, anonymousId);
+
+    if (!usageCheck.allowed) {
+      return NextResponse.json(
+        {
+          error: 'Usage limit exceeded',
+          remaining: usageCheck.remaining,
+          plan: usageCheck.plan,
+          requiresAuth: !userId && anonymousId && usageCheck.remaining === 0
+        },
+        { status: 403 }
       );
     }
 
@@ -71,9 +98,16 @@ export async function POST(request: NextRequest) {
     const base64Image = Buffer.from(processedBuffer).toString('base64');
     const dataUrl = `data:image/png;base64,${base64Image}`;
 
+    // Increment usage count
+    await incrementUsage(userId || undefined, anonymousId);
+
+    // Log usage
+    await logUsage(userId || undefined, anonymousId, 'success', file.size);
+
     return NextResponse.json({
       success: true,
       image: dataUrl,
+      remaining: usageCheck.remaining - 1
     });
 
   } catch (error) {

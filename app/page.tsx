@@ -3,15 +3,21 @@
 import { useState, useRef, useEffect } from "react";
 import { useI18n } from "@/lib/i18n/context";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
+import { AuthButtons } from "@/components/AuthButtons";
+import { useSession, signIn } from "next-auth/react";
+import { getAnonymousUser } from "@/lib/utils/anonymous";
 
 export default function Home() {
   const { t } = useI18n();
+  const { data: session, status } = useSession();
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [processedImage, setProcessedImage] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
   const [viewportHeight, setViewportHeight] = useState(0);
+  const [remainingCredits, setRemainingCredits] = useState<number>(3);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const originalFileRef = useRef<File | null>(null);
 
@@ -24,6 +30,21 @@ export default function Home() {
     window.addEventListener('resize', updateHeight);
     return () => window.removeEventListener('resize', updateHeight);
   }, []);
+
+  // Check usage credits on mount
+  useEffect(() => {
+    const checkUsage = async () => {
+      try {
+        const response = await fetch('/api/usage/check');
+        const data = await response.json();
+        setRemainingCredits(data.remaining);
+      } catch (error) {
+        console.error('Failed to check usage:', error);
+      }
+    };
+
+    checkUsage();
+  }, [session]);
 
   const handleImageSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -89,6 +110,12 @@ export default function Home() {
   const handleRemoveBackground = async () => {
     if (!selectedImage || !originalFileRef.current) return;
 
+    // Check if user has credits
+    if (remainingCredits <= 0) {
+      setShowUpgradeModal(true);
+      return;
+    }
+
     setIsProcessing(true);
     setError(null);
     setProgress(0);
@@ -98,6 +125,12 @@ export default function Home() {
       // Create form data with the image file
       const formData = new FormData();
       formData.append('image', originalFileRef.current);
+
+      // Add user ID header if authenticated
+      const headers: HeadersInit = {};
+      if (session?.user?.id) {
+        headers['x-user-id'] = session.user.id;
+      }
 
       // Progress updates
       const progressSteps = [10, 25, 40, 60, 80, 95];
@@ -109,18 +142,28 @@ export default function Home() {
       // Call our API route
       const response = await fetch('/api/remove-background', {
         method: 'POST',
+        headers,
         body: formData,
       });
 
       const data = await response.json();
 
       if (!response.ok) {
+        // Handle usage limit exceeded
+        if (response.status === 403 && data.requiresAuth) {
+          setShowUpgradeModal(true);
+          throw new Error('Usage limit exceeded. Please sign up for more credits!');
+        }
         throw new Error(data.error || 'Failed to remove background');
       }
 
       if (data.success && data.image) {
         setProcessedImage(data.image);
         setProgress(100);
+        // Update remaining credits
+        if (data.remaining !== undefined) {
+          setRemainingCredits(data.remaining);
+        }
       } else {
         throw new Error('Invalid response from server');
       }
@@ -130,7 +173,10 @@ export default function Home() {
       console.error("Error removing background:", err);
       const errorMessage = err instanceof Error ? err.message : t('processingError');
 
-      if (errorMessage.includes('API key not configured')) {
+      if (errorMessage.includes('Usage limit exceeded')) {
+        setError(errorMessage);
+        setShowUpgradeModal(true);
+      } else if (errorMessage.includes('API key not configured')) {
         setError('Server configuration error. Please contact administrator.');
       } else if (errorMessage.includes('Invalid API key')) {
         setError('API configuration error. Please check API key.');
@@ -183,7 +229,15 @@ export default function Home() {
 
   return (
     <main className="h-screen w-screen overflow-hidden flex flex-col p-4 md:p-6">
-      <LanguageSwitcher />
+      <div className="flex justify-between items-center">
+        <LanguageSwitcher />
+        <div className="flex items-center gap-4">
+          <div className="text-sm text-gray-600">
+            {t('remainingCredits')}: {remainingCredits}
+          </div>
+          <AuthButtons />
+        </div>
+      </div>
 
       <div className="flex-1 flex flex-col min-h-0">
         {/* 标题区域 */}
@@ -397,6 +451,70 @@ export default function Home() {
           </p>
         </div>
       </div>
+
+      {/* Upgrade Modal */}
+      {showUpgradeModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl p-6 md:p-8 max-w-md w-full shadow-2xl">
+            <div className="text-center">
+              <div className="w-16 h-16 bg-gradient-to-br from-purple-100 to-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg
+                  className="w-8 h-8 text-purple-600"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M13 10V3L4 14h7v7l9-11h-7z"
+                  />
+                </svg>
+              </div>
+
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">
+                {t('upgradePrompt')}
+              </h2>
+
+              <p className="text-gray-600 mb-6">
+                {t('upgradeMessage')}
+              </p>
+
+              <div className="space-y-3">
+                <button
+                  onClick={() => {
+                    setShowUpgradeModal(false);
+                    window.location.href = '/pricing';
+                  }}
+                  className="w-full bg-gradient-to-r from-purple-600 to-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:shadow-lg transition-all"
+                >
+                  {t('upgradeButton')}
+                </button>
+
+                <button
+                  onClick={() => setShowUpgradeModal(false)}
+                  className="w-full bg-gray-100 text-gray-700 px-6 py-3 rounded-lg font-semibold hover:bg-gray-200 transition-colors"
+                >
+                  {t('close')}
+                </button>
+              </div>
+
+              <div className="mt-6 pt-6 border-t border-gray-200">
+                <p className="text-sm text-gray-500 mb-2">Or sign up for free:</p>
+                <div className="flex justify-center gap-2">
+                  <button
+                    onClick={() => signIn(undefined, { callbackUrl: '/dashboard' })}
+                    className="px-4 py-2 text-sm font-semibold bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 transition-colors"
+                  >
+                    Sign Up Free
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

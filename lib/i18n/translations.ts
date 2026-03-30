@@ -57,6 +57,13 @@ export const translations = {
     language: 'Language',
     switchToChinese: '中文',
     switchToEnglish: 'English',
+
+    // Usage & Credits
+    remainingCredits: 'Remaining Credits',
+    upgradePrompt: '⚠️ Free Limit Reached',
+    upgradeMessage: 'You\'ve used your free credits. Sign up for 10 more credits per month!',
+    upgradeButton: 'View Pricing',
+    close: 'Close',
   },
   zh: {
     // Header
@@ -114,6 +121,13 @@ export const translations = {
     language: '语言',
     switchToChinese: '中文',
     switchToEnglish: 'English',
+
+    // Usage & Credits
+    remainingCredits: '剩余次数',
+    upgradePrompt: '⚠️ 免费额度已用完',
+    upgradeMessage: '您的免费次数已用完。注册账户可获得每月 10 次免费额度！',
+    upgradeButton: '查看定价',
+    close: '关闭',
   },
 };
 
