@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
+import { createOrder } from '@/db';
 
 const plans = {
   starter: { price: 4.99, credits: 100, name: 'Starter Plan' },
@@ -90,7 +91,7 @@ export async function POST(request: NextRequest) {
           ],
           application_context: {
             return_url: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/paypal/capture-order`,
-            cancel_url: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/pricing?cancelled=true`,
+            cancel_url: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/payment/cancelled`,
           },
         }),
       }
@@ -117,8 +118,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Store order info in database (you'd implement this)
-    // await storeOrderInfo(order.id, user.id, plan);
+    // Store order info in database
+    await createOrder({
+      user_id: user.id,
+      order_id: order.id,
+      plan_type: plan,
+      credits: planDetails.credits,
+      amount: planDetails.price,
+      currency: 'USD',
+      status: 'pending',
+    });
 
     return NextResponse.json({
       orderId: order.id,

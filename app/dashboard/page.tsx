@@ -3,6 +3,7 @@
 import { useSession, signOut } from "next-auth/react";
 import { useEffect, useState } from "react";
 import { useI18n } from "@/lib/i18n/context";
+import { useSearchParams } from "next/navigation";
 
 interface UsageData {
   allowed: boolean;
@@ -10,27 +11,56 @@ interface UsageData {
   plan: string;
 }
 
+interface Order {
+  id: number;
+  order_id: string;
+  plan_type: string;
+  credits: number;
+  amount: number;
+  currency: string;
+  status: string;
+  created_at: string;
+}
+
 export default function DashboardPage() {
   const { data: session, status } = useSession();
   const { t } = useI18n();
+  const searchParams = useSearchParams();
   const [usage, setUsage] = useState<UsageData | null>(null);
+  const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showPaymentNotification, setShowPaymentNotification] = useState(false);
 
   useEffect(() => {
-    const fetchUsage = async () => {
+    // Check if user just completed a payment
+    if (searchParams.get('payment') === 'success') {
+      setShowPaymentNotification(true);
+      // Hide notification after 5 seconds
+      setTimeout(() => setShowPaymentNotification(false), 5000);
+    }
+  }, [searchParams]);
+
+  useEffect(() => {
+    const fetchData = async () => {
       try {
-        const response = await fetch('/api/usage/check');
-        const data = await response.json();
-        setUsage(data);
+        // Fetch usage
+        const usageResponse = await fetch('/api/usage/check');
+        const usageData = await usageResponse.json();
+        setUsage(usageData);
+
+        // Fetch orders
+        const ordersResponse = await fetch('/api/orders');
+        const ordersData = await ordersResponse.json();
+        setOrders(ordersData.orders || []);
       } catch (error) {
-        console.error('Failed to fetch usage:', error);
+        console.error('Failed to fetch data:', error);
       } finally {
         setLoading(false);
       }
     };
 
     if (session) {
-      fetchUsage();
+      fetchData();
     }
   }, [session]);
 
@@ -45,6 +75,26 @@ export default function DashboardPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-pink-50 py-12 px-4">
       <div className="max-w-6xl mx-auto">
+        {/* Payment Success Notification */}
+        {showPaymentNotification && (
+          <div className="mb-6 bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded-lg flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+              </svg>
+              <span className="font-semibold">Payment successful! Your credits have been added.</span>
+            </div>
+            <button
+              onClick={() => setShowPaymentNotification(false)}
+              className="text-green-700 hover:text-green-900"
+            >
+              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+              </svg>
+            </button>
+          </div>
+        )}
+
         {/* Header */}
         <div className="bg-white rounded-2xl shadow-xl p-8 mb-8">
           <div className="flex items-center justify-between">
@@ -137,6 +187,51 @@ export default function DashboardPage() {
             </div>
           </div>
         </div>
+
+        {/* Order History */}
+        {orders.length > 0 && (
+          <div className="bg-white rounded-2xl shadow-xl p-8 mb-8">
+            <h2 className="text-2xl font-bold mb-6">Order History</h2>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-gray-200">
+                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-600">Date</th>
+                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-600">Plan</th>
+                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-600">Credits</th>
+                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-600">Amount</th>
+                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-600">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {orders.map((order) => (
+                    <tr key={order.id} className="border-b border-gray-100 hover:bg-gray-50">
+                      <td className="py-3 px-4 text-sm">
+                        {new Date(order.created_at).toLocaleDateString()}
+                      </td>
+                      <td className="py-3 px-4 text-sm capitalize">{order.plan_type}</td>
+                      <td className="py-3 px-4 text-sm font-semibold">{order.credits}</td>
+                      <td className="py-3 px-4 text-sm">
+                        ${order.amount.toFixed(2)} {order.currency}
+                      </td>
+                      <td className="py-3 px-4">
+                        <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                          order.status === 'completed'
+                            ? 'bg-green-100 text-green-700'
+                            : order.status === 'pending'
+                            ? 'bg-yellow-100 text-yellow-700'
+                            : 'bg-red-100 text-red-700'
+                        }`}>
+                          {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
 
         {/* Actions */}
         <div className="bg-white rounded-2xl shadow-xl p-8">

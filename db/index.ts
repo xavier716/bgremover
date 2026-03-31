@@ -143,3 +143,46 @@ export async function logUsage(
     VALUES (${userId || null}, ${anonymousId || null}, ${status}, ${imageSize || null}, ${processingTime || null})
   `;
 }
+
+// Order history functions
+export interface Order {
+  id?: number;
+  user_id: string;
+  order_id: string;
+  plan_type: string;
+  credits: number;
+  amount: number;
+  currency: string;
+  status: string;
+  created_at?: Date;
+}
+
+// Create order record
+export async function createOrder(order: Omit<Order, 'id' | 'created_at'>): Promise<Order> {
+  const result = await sql`
+    INSERT INTO orders (user_id, order_id, plan_type, credits, amount, currency, status)
+    VALUES (${order.user_id}, ${order.order_id}, ${order.plan_type}, ${order.credits}, ${order.amount}, ${order.currency}, ${order.status})
+    RETURNING *
+  `;
+  return result.rows[0] as Order;
+}
+
+// Get user orders
+export async function getUserOrders(userId: string): Promise<Order[]> {
+  const result = await sql`
+    SELECT * FROM orders
+    WHERE user_id = ${userId}
+    ORDER BY created_at DESC
+    LIMIT 20
+  `;
+  return result.rows as Order[];
+}
+
+// Update order status
+export async function updateOrderStatus(orderId: string, status: string): Promise<void> {
+  await sql`
+    UPDATE orders
+    SET status = ${status}
+    WHERE order_id = ${orderId}
+  `;
+}

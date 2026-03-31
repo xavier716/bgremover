@@ -210,7 +210,7 @@ export default function PricingPage() {
         </div>
 
         {/* FAQ Section */}
-        <div className="bg-white rounded-2xl shadow-xl p-8">
+        <div className="bg-white rounded-2xl shadow-xl p-8 mb-8">
           <h2 className="text-3xl font-bold text-center mb-8">
             Frequently Asked Questions
           </h2>
@@ -220,7 +220,7 @@ export default function PricingPage() {
               <h3 className="font-semibold text-lg mb-2">What payment methods do you accept?</h3>
               <p className="text-gray-600">
                 We accept PayPal, credit cards, and debit cards through our secure payment
-                system powered by PayPal.
+                system powered by PayPal. All payments are processed securely.
               </p>
             </div>
 
@@ -243,9 +243,73 @@ export default function PricingPage() {
             <div>
               <h3 className="font-semibold text-lg mb-2">Is there a free trial?</h3>
               <p className="text-gray-600">
-                Yes! Anonymous users get 3 free removals. Sign up for an account to get 10
-                free removals per month.
+                Yes! All users get 3 free background removals to try out the service.
+                No credit card required.
               </p>
+            </div>
+
+            <div>
+              <h3 className="font-semibold text-lg mb-2">Is my payment information secure?</h3>
+              <p className="text-gray-600">
+                Absolutely! We use PayPal's secure payment system. Your payment information
+                is never stored on our servers.
+              </p>
+            </div>
+
+            <div>
+              <h3 className="font-semibold text-lg mb-2">Can I get a refund?</h3>
+              <p className="text-gray-600">
+                Yes, if you're not satisfied with your purchase, contact our support within
+                7 days for a full refund.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Trust Badges */}
+        <div className="bg-white rounded-2xl shadow-xl p-8 mb-8">
+          <h3 className="text-2xl font-bold text-center mb-8">Trusted by Users Worldwide</h3>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
+            <div className="text-center">
+              <div className="text-4xl font-bold text-purple-600 mb-2">10K+</div>
+              <p className="text-gray-600">Images Processed</p>
+            </div>
+            <div className="text-center">
+              <div className="text-4xl font-bold text-blue-600 mb-2">99.9%</div>
+              <p className="text-gray-600">Uptime Guarantee</p>
+            </div>
+            <div className="text-center">
+              <div className="text-4xl font-bold text-green-600 mb-2">24/7</div>
+              <p className="text-gray-600">Customer Support</p>
+            </div>
+            <div className="text-center">
+              <div className="text-4xl font-bold text-orange-600 mb-2">Secure</div>
+              <p className="text-gray-600">Payment Processing</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Payment Methods */}
+        <div className="bg-gradient-to-r from-purple-600 to-blue-600 rounded-2xl shadow-xl p-8 mb-8 text-white">
+          <div className="text-center">
+            <h3 className="text-2xl font-bold mb-4">Secure Payment Methods</h3>
+            <p className="mb-6">We accept all major payment methods through PayPal</p>
+            <div className="flex justify-center items-center gap-6 flex-wrap">
+              <div className="bg-white/10 backdrop-blur rounded-lg px-6 py-3">
+                <span className="font-semibold">PayPal</span>
+              </div>
+              <div className="bg-white/10 backdrop-blur rounded-lg px-6 py-3">
+                <span className="font-semibold">Credit Cards</span>
+              </div>
+              <div className="bg-white/10 backdrop-blur rounded-lg px-6 py-3">
+                <span className="font-semibold">Debit Cards</span>
+              </div>
+            </div>
+            <div className="mt-6 flex justify-center items-center gap-2 text-sm">
+              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
+              </svg>
+              <span>Secured by PayPal SSL Encryption</span>
             </div>
           </div>
         </div>

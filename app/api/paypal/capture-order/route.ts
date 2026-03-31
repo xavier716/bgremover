@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { addCredits } from '@/db';
+import { addCredits, updateOrderStatus } from '@/db';
 
 const PAYPAL_CLIENT_ID = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID_SANDBOX || '';
 const PAYPAL_CLIENT_SECRET = process.env.PAYPAL_CLIENT_SECRET_SANDBOX || '';
@@ -72,11 +72,14 @@ export async function GET(request: NextRequest) {
 
       // Add credits to user
       await addCredits(userId, parseInt(credits), plan);
+
+      // Update order status
+      await updateOrderStatus(token, 'completed');
     }
 
     // Redirect to success page
     return NextResponse.redirect(
-      new URL('/dashboard?payment=success', request.url)
+      new URL('/payment/success', request.url)
     );
 
   } catch (error) {
