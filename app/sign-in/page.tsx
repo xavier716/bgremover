@@ -54,8 +54,7 @@ export default function SignInPage() {
               Continue with Google
             </button>
 
-            {/* GitHub login - temporarily disabled */}
-            {/* <button
+            <button
               onClick={() => handleSignIn("github")}
               disabled={isLoading}
               className="w-full flex items-center justify-center gap-3 px-4 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
@@ -68,7 +67,7 @@ export default function SignInPage() {
                 />
               </svg>
               Continue with GitHub
-            </button> */}
+            </button>
           </div>
 
           <div className="mt-6 pt-6 border-t border-gray-200">
