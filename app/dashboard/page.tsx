@@ -1,9 +1,27 @@
 "use client";
 
 import { useSession, signOut } from "next-auth/react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { useI18n } from "@/lib/i18n/context";
 import { useSearchParams } from "next/navigation";
+
+function DashboardContent() {
+  const { data: session, status } = useSession();
+  const { t } = useI18n();
+  const searchParams = useSearchParams();
+  const [usage, setUsage] = useState<UsageData | null>(null);
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showPaymentNotification, setShowPaymentNotification] = useState(false);
+
+  useEffect(() => {
+    // Check if user just completed a payment
+    if (searchParams.get('payment') === 'success') {
+      setShowPaymentNotification(true);
+      // Hide notification after 5 seconds
+      setTimeout(() => setShowPaymentNotification(false), 5000);
+    }
+  }, [searchParams]);
 
 interface UsageData {
   allowed: boolean;
@@ -23,6 +41,18 @@ interface Order {
 }
 
 export default function DashboardPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-pink-50 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
+      </div>
+    }>
+      <DashboardContent />
+    </Suspense>
+  );
+}
+
+function DashboardContent() {
   const { data: session, status } = useSession();
   const { t } = useI18n();
   const searchParams = useSearchParams();
