@@ -5,24 +5,6 @@ import { useEffect, useState, Suspense } from "react";
 import { useI18n } from "@/lib/i18n/context";
 import { useSearchParams } from "next/navigation";
 
-function DashboardContent() {
-  const { data: session, status } = useSession();
-  const { t } = useI18n();
-  const searchParams = useSearchParams();
-  const [usage, setUsage] = useState<UsageData | null>(null);
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [showPaymentNotification, setShowPaymentNotification] = useState(false);
-
-  useEffect(() => {
-    // Check if user just completed a payment
-    if (searchParams.get('payment') === 'success') {
-      setShowPaymentNotification(true);
-      // Hide notification after 5 seconds
-      setTimeout(() => setShowPaymentNotification(false), 5000);
-    }
-  }, [searchParams]);
-
 interface UsageData {
   allowed: boolean;
   remaining: number;
