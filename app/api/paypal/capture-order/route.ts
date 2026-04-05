@@ -70,11 +70,16 @@ export async function GET(request: NextRequest) {
     if (customId) {
       const [userId, plan, credits] = customId.split(':');
 
-      // Add credits to user
-      await addCredits(userId, parseInt(credits), plan);
+      try {
+        // Add credits to user
+        await addCredits(userId, parseInt(credits), plan);
 
-      // Update order status
-      await updateOrderStatus(token, 'completed');
+        // Update order status
+        await updateOrderStatus(token, 'completed');
+      } catch (dbError) {
+        // Log database error but don't fail the payment
+        console.error('Failed to update database:', dbError);
+      }
     }
 
     // Redirect to success page

@@ -119,15 +119,20 @@ export async function POST(request: NextRequest) {
     }
 
     // Store order info in database
-    await createOrder({
-      user_id: user.id,
-      order_id: order.id,
-      plan_type: plan,
-      credits: planDetails.credits,
-      amount: planDetails.price,
-      currency: 'USD',
-      status: 'pending',
-    });
+    try {
+      await createOrder({
+        user_id: user.id,
+        order_id: order.id,
+        plan_type: plan,
+        credits: planDetails.credits,
+        amount: planDetails.price,
+        currency: 'USD',
+        status: 'pending',
+      });
+    } catch (dbError) {
+      // Log database error but don't fail the payment
+      console.error('Failed to store order:', dbError);
+    }
 
     return NextResponse.json({
       orderId: order.id,
